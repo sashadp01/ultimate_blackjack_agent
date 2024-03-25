@@ -7,7 +7,7 @@ from stable_baselines3.common.env_util import make_vec_env
 vec_env = make_vec_env("CartPole-v1", n_envs=4)
 
 # Train the agent
-model = PPO("MlpPolicy", vec_env, verbose=1)
+model = PPO("MlpPolicy", vec_env, verbose=1,device='cuda')
 model.learn(total_timesteps=25000)
 model.save("ppo_cartpole")
 

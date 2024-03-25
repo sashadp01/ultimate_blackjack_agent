@@ -2,14 +2,13 @@ import gymnasium as gym
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
-
+import torch
 from custom_bj_env import BlackjackModified
 
 # Define the parallel environments
 vec_env = make_vec_env(BlackjackModified, n_envs=4)
-
 # Train the agent
-model = PPO("MlpPolicy", vec_env, verbose=1)
+model = PPO("MlpPolicy", vec_env, verbose=1,device='cuda')
 model.learn(total_timesteps=25000)
 model.save("ppo_cartpole")
 
