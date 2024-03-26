@@ -1,16 +1,19 @@
+"""
+    Modified BlackJack Simulator into a Gym environment
+    Comments with # Addition: indicate modifications
+"""
 import sys
 from random import shuffle
 
 import numpy as np
-import scipy.stats as stats
-import pylab as pl
-import matplotlib.pyplot as plt
+from BlackJack_Simulator.importer.StrategyImporter import StrategyImporter
 
-from importer.StrategyImporter import StrategyImporter
-
+#Addition: new imports
+import gymnasium as gym
+from gymnasium import spaces
 
 GAMES = 20000
-SHOE_SIZE = 6
+SHOE_SIZE = 1
 SHOE_PENETRATION = 0.25
 BET_SPREAD = 20.0
 
@@ -25,6 +28,85 @@ BLACKJACK_RULES = {
 HARD_STRATEGY = {}
 SOFT_STRATEGY = {}
 PAIR_STRATEGY = {}
+
+# Addition: new class
+class UltimateBlackjackRoundEnv(gym.Env):
+    """ Custom Environment that follows gym interface. Episode is a single round of Blackjack."""
+    
+    metadata = {"render_modes": ["console"]}
+    
+    def __init__(self,card_count=True,render_mode="console"):
+        super(UltimateBlackjackRoundEnv, self).__init__()
+        self.render_mode = render_mode
+        self.card_count = card_count
+        # define action and observation space
+        self.action_space = spaces.Discrete(4) # Actions are Hit, Stand, Double, Surrender
+        #observation space:
+        if card_count:
+            # [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1, aces, 2-9, 10 or face card]]
+            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0,0,0,0,0,0,0,0,0,0]), high=np.array([31, 10, 1, 4,4,4,4,4,4,4,4,4,16]), dtype=int)
+        else:
+            # [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1]
+            self.observation_space = spaces.Box(low=np.array([3, 1, 0]), high=np.array([31, 10, 1]), dtype=int)
+        self.game = Game(randomize_shoe_state=True)
+    
+    def reset(self,seed=None,options=None):
+        super().reset(seed=seed,options=options)
+        #create new game
+        self.game = Game(randomize_shoe_state=True)
+        self.game.start_gym_round()
+        #return initial observation
+        observation = self.get_observation()
+        return observation, {} # Addition: return observation and empty info
+    
+    # get observation in the format [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1]
+    def get_observation(self):
+        player_sum = self.game.player.hands[0].value
+        dealer_sum = self.game.dealer.hand.value
+        usable_ace = 1 if self.game.player.hands[0].aces_soft > 0 else 0
+        if not self.card_count:
+            return np.array([player_sum, dealer_sum, usable_ace]).astype(int)
+        else:
+            cards_played = self.game.shoe.cards_played
+            return_array = np.array([player_sum, dealer_sum, usable_ace])
+            #concatenate the cards played
+            return_array = np.concatenate([return_array,cards_played])
+            return return_array.astype(int)
+
+    # take action in the round
+    def step(self, action):
+        #take action
+        round_over = self.game.player.take_action(action, self.game.shoe)
+        if not round_over:
+            reward = 0
+            terminated = False
+        else:
+            # let dealer play
+            self.game.dealer.play(self.game.shoe)
+            # get winnings
+            win, bet = self.game.get_hand_winnings(self.game.player.hands[0])
+            reward = win
+            terminated = True
+        
+        # return observation, reward, terminated, truncated, info
+        return self.get_observation(), reward, terminated, False, {}
+    
+    # render the environment
+    def render(self):
+        if self.render_mode == "console":
+            print("Player Hand: %s" % self.game.player.hands[0])
+            print("Dealer Hand: %s" % self.game.dealer.hand)
+            # print if player won or lost
+    
+    def close(self):
+        pass
+            
+        
+        
+        
+        
+        
+        
 
 
 class Card(object):
@@ -45,13 +127,20 @@ class Shoe(object):
     """
     reshuffle = False
 
-    def __init__(self, decks):
+    def __init__(self, decks, randomize_shoe_state=False):
         self.count = 0
         self.count_history = []
         self.ideal_count = {}
         self.decks = decks
         self.cards = self.init_cards()
+        self.cards_played = np.zeros(10) # Addition: keep track of number of cards played (ace,2-9,10 or face card)
         self.init_count()
+        
+        # Addition: randomize shoe state by removing a random number of cards
+        if randomize_shoe_state:
+            cards_to_remove = np.random.randint(0, len(self.cards)*(1-SHOE_PENETRATION))
+            for i in range(cards_to_remove):
+                self.do_count(self.cards.pop())
 
     def __str__(self):
         s = ""
@@ -59,7 +148,7 @@ class Shoe(object):
             s += "%s\n" % c
         return s
 
-    def init_cards(self):
+    def init_cards(self, randomize_shoe_state=False):
         """
         Initialize the shoe with shuffled playing cards and set count to zero.
         """
@@ -72,6 +161,8 @@ class Shoe(object):
                 for i in range(0, 4):
                     cards.append(Card(c, CARDS[c]))
         shuffle(cards)
+        
+            
         return cards
 
     def init_count(self):
@@ -103,6 +194,9 @@ class Shoe(object):
         """
         self.count += BASIC_OMEGA_II[card.name]
         self.count_history.append(self.truecount())
+        # Addition: keep track of number of cards played
+        card_index = card.value if not (card.value == 11) else 1
+        self.cards_played[card_index-1] += 1
 
     def truecount(self):
         """
@@ -300,6 +394,25 @@ class Player(object):
             if flag == 'S':
                 break
 
+    def take_action(self, action, shoe):
+        hand = self.hands[0]
+        round_over = False
+        if action == 0: # Hit
+            self.hit(hand, shoe)
+        elif action == 1: # Stand
+            round_over = True
+        elif action == 2: # Double
+            hand.doubled = True
+            self.hit(hand, shoe)
+            round_over = True
+        elif action == 3: # Surrender
+            hand.surrender = True
+            round_over = True
+        if hand.busted() or hand.blackjack():
+            round_over = True
+        return round_over
+        
+    
     def hit(self, hand, shoe):
         c = shoe.deal()
         hand.add_card(c)
@@ -370,8 +483,8 @@ class Game(object):
     """
     A sequence of Blackjack Rounds that keeps track of total money won or lost
     """
-    def __init__(self):
-        self.shoe = Shoe(SHOE_SIZE)
+    def __init__(self, randomize_shoe_state=False):
+        self.shoe = Shoe(SHOE_SIZE, randomize_shoe_state)
         self.money = 0.0
         self.bet = 0.0
         self.stake = 1.0
@@ -445,6 +558,19 @@ class Game(object):
             # print "Player Hand: %s %s (Value: %d, Busted: %r, BlackJack: %r, Splithand: %r, Soft: %r, Surrender: %r, Doubled: %r)" % (hand, status, hand.value, hand.busted(), hand.blackjack(), hand.splithand, hand.soft(), hand.surrender, hand.doubled)
 
         # print "Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
+    
+    # Addition: deals the initial cards until player's turn    
+    def start_gym_round(self):
+        self.stake = 1.0
+        
+        
+        
+        player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
+        dealer_hand = Hand([self.shoe.deal()])
+        self.player.set_hands(player_hand, dealer_hand)
+        self.dealer.set_hand(dealer_hand)
+        return
+        
 
     def get_money(self):
         return self.money
@@ -453,7 +579,7 @@ class Game(object):
         return self.bet
 
 
-if __name__ == "__main__":
+def main():
     importer = StrategyImporter(sys.argv[1])
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
 
@@ -481,17 +607,18 @@ if __name__ == "__main__":
     for value in bets:
         total_bet += value
 
-    print "\n%d hands overall, %0.2f hands per game on average" % (nb_hands, float(nb_hands) / GAMES)
-    print "%0.2f total bet" % total_bet
+    print("\n%d hands overall, %0.2f hands per game on average" % (nb_hands, float(nb_hands) / GAMES))
+    print("%0.2f total bet" % total_bet)
     print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
 
     moneys = sorted(moneys)
-    fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
-    pl.plot(moneys, fit, '-o')
-    pl.hist(moneys, normed=True)
-    pl.show()
+    # Addition: remove plotting
+    # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
+    # pl.plot(moneys, fit, '-o')
+    # pl.hist(moneys, normed=True)
+    # pl.show()
 
-    plt.ylabel('count')
-    plt.plot(countings, label='x')
-    plt.legend()
-    plt.show()
+    # plt.ylabel('count')
+    # plt.plot(countings, label='x')
+    # plt.legend()
+    # plt.show()
