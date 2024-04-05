@@ -35,20 +35,29 @@ class UltimateBlackjackRoundEnv(gym.Env):
     
     metadata = {"render_modes": ["console"]}
     
-    def __init__(self,card_count=True,render_mode="console"):
+    def __init__(self,render_mode="console",card_counting=True):
         super(UltimateBlackjackRoundEnv, self).__init__()
         self.render_mode = render_mode
-        self.card_count = card_count
+        self.card_counting = card_counting
         # define action and observation space
-        self.action_space = spaces.Discrete(4) # Actions are Hit, Stand, Double, Surrender
+        self.action_space = spaces.Discrete(5) # Actions are Hit, Stand, Double, Surrender, Split
         #observation space:
-        if card_count:
-            # [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1, aces, 2-9, 10 or face card]]
-            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0,0,0,0,0,0,0,0,0,0]), high=np.array([31, 10, 1, 4,4,4,4,4,4,4,4,4,16]), dtype=int)
+        # State space:
+        # Player sum: 3-31,
+        # Dealer's upcard: 1-10,
+        # Usable ace: 0 or 1, 
+        # pair in hand: 0 or 1,
+        # first action in hand: 0 or 1
+        # aces, 2-9, 10 or face card: 0-4 except 10 or face card: 0-16 (assuming 1 deck)
+        if self.card_counting:
+            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0, 0, 0,0,0,0,0,0,0,0,0,0]), high=np.array([31, 10, 1, 1, 1, 4,4,4,4,4,4,4,4,4,16]), dtype=int)
         else:
-            # [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1]
-            self.observation_space = spaces.Box(low=np.array([3, 1, 0]), high=np.array([31, 10, 1]), dtype=int)
+            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0, 0]), high=np.array([31, 10, 1, 1, 1]), dtype=int)
         self.game = Game(randomize_shoe_state=True)
+        self.actions_played = []
+        self.illegal_moves = 0
+        self.won = 0
+        self.returns = []
     
     def reset(self,seed=None,options=None):
         super().reset(seed=seed,options=options)
@@ -57,6 +66,10 @@ class UltimateBlackjackRoundEnv(gym.Env):
         self.game.start_gym_round()
         #return initial observation
         observation = self.get_observation()
+        self.actions_played = []
+        self.illegal_move_made = 0
+        self.won = 0
+        self.returns = []
         return observation, {} # Addition: return observation and empty info
     
     # get observation in the format [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1]
@@ -64,32 +77,56 @@ class UltimateBlackjackRoundEnv(gym.Env):
         player_sum = self.game.player.hands[0].value
         dealer_sum = self.game.dealer.hand.value
         usable_ace = 1 if self.game.player.hands[0].aces_soft > 0 else 0
-        if not self.card_count:
-            return np.array([player_sum, dealer_sum, usable_ace]).astype(int)
-        else:
-            cards_played = self.game.shoe.cards_played
-            return_array = np.array([player_sum, dealer_sum, usable_ace])
-            #concatenate the cards played
+        pair_in_hand = 1 if self.game.player.hands[0].splitable() else 0
+        first_action_in_hand = 1 if self.game.player.hands[0].length() == 2 else 0
+        
+        cards_played = self.game.shoe.cards_played
+        return_array = np.array([player_sum, dealer_sum, usable_ace, pair_in_hand, first_action_in_hand])
+        #concatenate the cards played
+        if self.card_counting:
             return_array = np.concatenate([return_array,cards_played])
-            return return_array.astype(int)
+        return return_array.astype(int)
 
     # take action in the round
     def step(self, action):
+        self.actions_played.append(action)
         #take action
-        round_over = self.game.player.take_action(action, self.game.shoe)
-        if not round_over:
+        round_over, illegal = self.game.player.take_action(action, self.game.shoe)
+        if illegal:
+            reward = -1
+            terminated = True
+            status = None
+            self.illegal_move_made = 1
+        elif not round_over:
             reward = 0
             terminated = False
+            status = None
         else:
             # let dealer play
             self.game.dealer.play(self.game.shoe)
             # get winnings
-            win, bet = self.game.get_hand_winnings(self.game.player.hands[0])
+            win, bet, status = self.game.get_hand_winnings(self.game.player.hands[0])
+            if status == "WON" or status == "WON 3:2":
+                self.won = 1
             reward = win
             terminated = True
         
+        self.returns.append(reward)
+        
         # return observation, reward, terminated, truncated, info
-        return self.get_observation(), reward, terminated, False, {}
+        if terminated:
+            info = {}
+            info["illegal"] = self.illegal_move_made
+            info["won"] = self.won
+            info["hit"] = self.actions_played.count(0)
+            info["stand"] = self.actions_played.count(1)
+            info["double"] = self.actions_played.count(2)
+            info["surrender"] = self.actions_played.count(3)
+            info["split"] = self.actions_played.count(4)
+            info["return"] = sum(self.returns)
+            return self.get_observation(), reward, terminated, False, info
+        else:
+            return self.get_observation(), reward, terminated, False, {}
     
     # render the environment
     def render(self):
@@ -104,11 +141,7 @@ class UltimateBlackjackRoundEnv(gym.Env):
         
         
         
-        
-        
-        
-
-
+    
 class Card(object):
     """
     Represents a playing card with name and value.
@@ -180,6 +213,10 @@ class Shoe(object):
         """
         if self.shoe_penetration() < SHOE_PENETRATION:
             self.reshuffle = True
+        if len(self.cards) == 0: # prevent index out of range
+            self.cards = self.init_cards()
+            self.init_count()
+            self.reshuffle = False
         card = self.cards.pop()
 
         assert self.ideal_count[card.name] > 0, "Either a cheater or a bug!"
@@ -221,6 +258,8 @@ class Hand(object):
     splithand = False
     surrender = False
     doubled = False
+    first_action = True
+    
 
     def __init__(self, cards):
         self.cards = cards
@@ -394,23 +433,39 @@ class Player(object):
             if flag == 'S':
                 break
 
+    # Addition: take action in the round
     def take_action(self, action, shoe):
         hand = self.hands[0]
         round_over = False
+        illegal = False
         if action == 0: # Hit
             self.hit(hand, shoe)
         elif action == 1: # Stand
             round_over = True
-        elif action == 2: # Double
-            hand.doubled = True
-            self.hit(hand, shoe)
-            round_over = True
-        elif action == 3: # Surrender
-            hand.surrender = True
-            round_over = True
+        elif hand.first_action:
+            if action == 2: # Double
+                hand.doubled = True
+                self.hit(hand, shoe)
+                round_over = True
+            elif action == 3: # Surrender
+                hand.surrender = True
+                round_over = True
+            elif action == 4: # Split
+                if hand.splitable():
+                    self.split(hand, shoe)
+                else:
+                    #invalid action
+                    illegal = True
+        else:
+            #invalid action
+            illegal = True
+        
+        if not illegal and action != 4:
+            hand.first_action = False
+            
         if hand.busted() or hand.blackjack():
             round_over = True
-        return round_over
+        return round_over, illegal
         
     
     def hit(self, hand, shoe):
@@ -419,9 +474,17 @@ class Player(object):
         # print "Hitted: %s" % c
 
     def split(self, hand, shoe):
-        self.hands.append(hand.split())
-        # print "Splitted %s" % hand
-        self.play_hand(hand, shoe)
+        # Addition: override split function to new behavior:
+        # - Remove one of the duplicate cards from the current hand
+        # - Hit the current hand
+        # - set splithand to True: will double the bet
+        c = hand.cards.pop()
+        self.hit(hand, shoe)
+        hand.splithand = True
+        
+        # self.hands.append(hand.split())
+        # # print "Splitted %s" % hand
+        # self.play_hand(hand, shoe)
 
 
 class Dealer(object):
@@ -528,10 +591,14 @@ class Game(object):
         if hand.doubled:
             win *= 2
             bet *= 2
+        if hand.splithand:
+            win *= 2
+            bet *= 2
+            #print(f"Splitted hand. Win: {win}, Bet: {bet}")
 
         win *= self.stake
 
-        return win, bet
+        return win, bet, status
 
     def play_round(self):
         if self.shoe.truecount() > 6:
@@ -552,7 +619,7 @@ class Game(object):
         # print ""
 
         for hand in self.player.hands:
-            win, bet = self.get_hand_winnings(hand)
+            win, bet, status = self.get_hand_winnings(hand)
             self.money += win
             self.bet += bet
             # print "Player Hand: %s %s (Value: %d, Busted: %r, BlackJack: %r, Splithand: %r, Soft: %r, Surrender: %r, Doubled: %r)" % (hand, status, hand.value, hand.busted(), hand.blackjack(), hand.splithand, hand.soft(), hand.surrender, hand.doubled)
