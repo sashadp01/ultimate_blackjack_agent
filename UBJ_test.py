@@ -14,7 +14,7 @@ monitor_kwargs = {"info_keywords": ("illegal", "won", "hit", "stand", "double", 
 env_kwargs = {"card_counting": False}
 
 # Perform evaluation on a single environment
-model = PPO.load("ppo_UBJ")
+model = PPO.load("ppo_UBJ_10M_no_count")
 
 # Perform evaluation on a single environment
 env = UltimateBlackjackRoundEnv(**env_kwargs)
