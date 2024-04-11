@@ -6,7 +6,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from utils.utils import *
 
 EPISODE_LENGTH = 2
-N_ENVS = 1
+N_ENVS = 4
 
 monitor_kwargs = {
     "info_keywords": (
@@ -21,7 +21,7 @@ monitor_kwargs = {
     )
 }
 env_kwargs = {"card_counting": True}
-model_name = "test_lr_linear_n_env_1"
+model_name = "test_lr_step_schedule"
 
 
 def lr_fixed_schedule(progress_remaining):
@@ -68,7 +68,7 @@ model = PPO(
     vec_env,
     verbose=0,
     device="cpu",
-    learning_rate=lr_linear_schedule,  # To be fine tuned
+    learning_rate=lr_step_schedule,  # To be fine tuned
     # batch_size=32,
     # n_steps=8192,
     # n_epochs=5,
@@ -100,6 +100,3 @@ model.learn(
 )
 
 model.save(model_name)
-
-# Try CnnPolicy
-# Try

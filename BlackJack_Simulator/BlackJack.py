@@ -2,13 +2,14 @@
     Modified BlackJack Simulator into a Gym environment
     Comments with # Addition: indicate modifications
 """
+
 import sys
 from random import shuffle
 
 import numpy as np
 from BlackJack_Simulator.importer.StrategyImporter import StrategyImporter
 
-#Addition: new imports
+# Addition: new imports
 import gymnasium as gym
 from gymnasium import spaces
 
@@ -18,60 +19,102 @@ SHOE_PENETRATION = 0.25
 BET_SPREAD = 20.0
 
 DECK_SIZE = 52.0
-CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
-BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
+CARDS = {
+    "Ace": 11,
+    "Two": 2,
+    "Three": 3,
+    "Four": 4,
+    "Five": 5,
+    "Six": 6,
+    "Seven": 7,
+    "Eight": 8,
+    "Nine": 9,
+    "Ten": 10,
+    "Jack": 10,
+    "Queen": 10,
+    "King": 10,
+}
+BASIC_OMEGA_II = {
+    "Ace": 0,
+    "Two": 1,
+    "Three": 1,
+    "Four": 2,
+    "Five": 2,
+    "Six": 2,
+    "Seven": 1,
+    "Eight": 0,
+    "Nine": -1,
+    "Ten": -2,
+    "Jack": -2,
+    "Queen": -2,
+    "King": -2,
+}
 
 BLACKJACK_RULES = {
-    'triple7': False,  # Count 3x7 as a blackjack
+    "triple7": False,  # Count 3x7 as a blackjack
 }
 
 HARD_STRATEGY = {}
 SOFT_STRATEGY = {}
 PAIR_STRATEGY = {}
 
+
 # Addition: new class
 class UltimateBlackjackRoundEnv(gym.Env):
-    """ Custom Environment that follows gym interface. Episode is a single round of Blackjack."""
-    
+    """Custom Environment that follows gym interface. Episode is a single round of Blackjack."""
+
     metadata = {"render_modes": ["console"]}
-    
-    def __init__(self,render_mode="console",card_counting=True):
+
+    def __init__(self, render_mode="console", card_counting=True):
         super(UltimateBlackjackRoundEnv, self).__init__()
         self.render_mode = render_mode
         self.card_counting = card_counting
         # define action and observation space
-        self.action_space = spaces.Discrete(5) # Actions are Hit, Stand, Double, Surrender, Split
-        #observation space:
+        self.action_space = spaces.Discrete(
+            5
+        )  # Actions are Hit, Stand, Double, Surrender, Split
+        # observation space:
         # State space:
         # Player sum: 3-31,
         # Dealer's upcard: 1-10,
-        # Usable ace: 0 or 1, 
+        # Usable ace: 0 or 1,
         # pair in hand: 0 or 1,
         # first action in hand: 0 or 1
         # aces, 2-9, 10 or face card: 0-4 except 10 or face card: 0-16 (assuming 1 deck)
         if self.card_counting:
-            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0, 0, 0,0,0,0,0,0,0,0,0,0]), high=np.array([31, 10, 1, 1, 1, 4,4,4,4,4,4,4,4,4,16]), dtype=int)
+            self.observation_space = spaces.Box(
+                low=np.array([3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+                high=np.array([31, 10, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 16]),
+                dtype=int,
+            )
         else:
-            self.observation_space = spaces.Box(low=np.array([3, 1, 0, 0, 0]), high=np.array([31, 10, 1, 1, 1]), dtype=int)
+            self.observation_space = spaces.Box(
+                low=np.array([3, 1, 0, 0, 0]),
+                high=np.array([31, 10, 1, 1, 1]),
+                dtype=int,
+            )
         self.game = Game(randomize_shoe_state=True)
         self.actions_played = []
         self.illegal_moves = 0
         self.won = 0
         self.returns = []
-    
-    def reset(self,seed=None,options=None):
-        super().reset(seed=seed,options=options)
-        #create new game
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed, options=options)
+        # create new game
         self.game = Game(randomize_shoe_state=True)
         self.game.start_gym_round()
-        #return initial observation
+        # return initial observation
         observation = self.get_observation()
         self.actions_played = []
         self.illegal_move_made = 0
         self.won = 0
         self.returns = []
-        return observation, {} # Addition: return observation and empty info
-    
+        return (
+            observation,
+            self.game.get_all_cards(),
+        )  # Addition: return observation and list of all cards
+
     # get observation in the format [Player sum: 3-31, Dealer's upcard: 1-10, Usable ace: 0 or 1]
     def get_observation(self):
         player_sum = self.game.player.hands[0].value
@@ -79,18 +122,20 @@ class UltimateBlackjackRoundEnv(gym.Env):
         usable_ace = 1 if self.game.player.hands[0].aces_soft > 0 else 0
         pair_in_hand = 1 if self.game.player.hands[0].splitable() else 0
         first_action_in_hand = 1 if self.game.player.hands[0].length() == 2 else 0
-        
+
         cards_played = self.game.shoe.cards_played
-        return_array = np.array([player_sum, dealer_sum, usable_ace, pair_in_hand, first_action_in_hand])
-        #concatenate the cards played
+        return_array = np.array(
+            [player_sum, dealer_sum, usable_ace, pair_in_hand, first_action_in_hand]
+        )
+        # concatenate the cards played
         if self.card_counting:
-            return_array = np.concatenate([return_array,cards_played])
+            return_array = np.concatenate([return_array, cards_played])
         return return_array.astype(int)
 
     # take action in the round
     def step(self, action):
         self.actions_played.append(action)
-        #take action
+        # take action
         round_over, illegal = self.game.player.take_action(action, self.game.shoe)
         if illegal:
             reward = -1
@@ -110,9 +155,9 @@ class UltimateBlackjackRoundEnv(gym.Env):
                 self.won = 1
             reward = win
             terminated = True
-        
+
         self.returns.append(reward)
-        
+
         # return observation, reward, terminated, truncated, info
         if terminated:
             info = {}
@@ -127,25 +172,23 @@ class UltimateBlackjackRoundEnv(gym.Env):
             return self.get_observation(), reward, terminated, False, info
         else:
             return self.get_observation(), reward, terminated, False, {}
-    
+
     # render the environment
     def render(self):
         if self.render_mode == "console":
             print("Player Hand: %s" % self.game.player.hands[0])
             print("Dealer Hand: %s" % self.game.dealer.hand)
             # print if player won or lost
-    
+
     def close(self):
         pass
-            
-        
-        
-        
-    
+
+
 class Card(object):
     """
     Represents a playing card with name and value.
     """
+
     def __init__(self, name, value):
         self.name = name
         self.value = value
@@ -158,6 +201,7 @@ class Shoe(object):
     """
     Represents the shoe, which consists of a number of card decks.
     """
+
     reshuffle = False
 
     def __init__(self, decks, randomize_shoe_state=False):
@@ -166,12 +210,16 @@ class Shoe(object):
         self.ideal_count = {}
         self.decks = decks
         self.cards = self.init_cards()
-        self.cards_played = np.zeros(10) # Addition: keep track of number of cards played (ace,2-9,10 or face card)
+        self.cards_played = np.zeros(
+            10
+        )  # Addition: keep track of number of cards played (ace,2-9,10 or face card)
         self.init_count()
-        
+
         # Addition: randomize shoe state by removing a random number of cards
         if randomize_shoe_state:
-            cards_to_remove = np.random.randint(0, len(self.cards)*(1-SHOE_PENETRATION))
+            cards_to_remove = np.random.randint(
+                0, len(self.cards) * (1 - SHOE_PENETRATION)
+            )
             for i in range(cards_to_remove):
                 self.do_count(self.cards.pop())
 
@@ -194,8 +242,7 @@ class Shoe(object):
                 for i in range(0, 4):
                     cards.append(Card(c, CARDS[c]))
         shuffle(cards)
-        
-            
+
         return cards
 
     def init_count(self):
@@ -213,7 +260,7 @@ class Shoe(object):
         """
         if self.shoe_penetration() < SHOE_PENETRATION:
             self.reshuffle = True
-        if len(self.cards) == 0: # prevent index out of range
+        if len(self.cards) == 0:  # prevent index out of range
             self.cards = self.init_cards()
             self.init_count()
             self.reshuffle = False
@@ -233,7 +280,7 @@ class Shoe(object):
         self.count_history.append(self.truecount())
         # Addition: keep track of number of cards played
         card_index = card.value if not (card.value == 11) else 1
-        self.cards_played[card_index-1] += 1
+        self.cards_played[card_index - 1] += 1
 
     def truecount(self):
         """
@@ -252,6 +299,7 @@ class Hand(object):
     """
     Represents a hand, either from the dealer or from the player
     """
+
     _value = 0
     _aces = []
     _aces_soft = 0
@@ -259,7 +307,6 @@ class Hand(object):
     surrender = False
     doubled = False
     first_action = True
-    
 
     def __init__(self, cards):
         self.cards = cards
@@ -334,7 +381,7 @@ class Hand(object):
         Check a hand for a blackjack, taking the defined BLACKJACK_RULES into account.
         """
         if not self.splithand and self.value == 21:
-            if all(c.value == 7 for c in self.cards) and BLACKJACK_RULES['triple7']:
+            if all(c.value == 7 for c in self.cards) and BLACKJACK_RULES["triple7"]:
                 return True
             elif self.length() == 2:
                 return True
@@ -380,6 +427,7 @@ class Player(object):
     """
     Represent a player
     """
+
     def __init__(self, hand=None, dealer_hand=None):
         self.hands = [hand]
         self.dealer_hand = dealer_hand
@@ -407,30 +455,30 @@ class Player(object):
             else:
                 flag = HARD_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
 
-            if flag == 'D':
+            if flag == "D":
                 if hand.length() == 2:
                     # print "Double Down"
                     hand.doubled = True
                     self.hit(hand, shoe)
                     break
                 else:
-                    flag = 'H'
+                    flag = "H"
 
-            if flag == 'Sr':
+            if flag == "Sr":
                 if hand.length() == 2:
                     # print "Surrender"
                     hand.surrender = True
                     break
                 else:
-                    flag = 'H'
+                    flag = "H"
 
-            if flag == 'H':
+            if flag == "H":
                 self.hit(hand, shoe)
 
-            if flag == 'P':
+            if flag == "P":
                 self.split(hand, shoe)
 
-            if flag == 'S':
+            if flag == "S":
                 break
 
     # Addition: take action in the round
@@ -438,36 +486,35 @@ class Player(object):
         hand = self.hands[0]
         round_over = False
         illegal = False
-        if action == 0: # Hit
+        if action == 0:  # Hit
             self.hit(hand, shoe)
-        elif action == 1: # Stand
+        elif action == 1:  # Stand
             round_over = True
         elif hand.first_action:
-            if action == 2: # Double
+            if action == 2:  # Double
                 hand.doubled = True
                 self.hit(hand, shoe)
                 round_over = True
-            elif action == 3: # Surrender
+            elif action == 3:  # Surrender
                 hand.surrender = True
                 round_over = True
-            elif action == 4: # Split
+            elif action == 4:  # Split
                 if hand.splitable():
                     self.split(hand, shoe)
                 else:
-                    #invalid action
+                    # invalid action
                     illegal = True
         else:
-            #invalid action
+            # invalid action
             illegal = True
-        
+
         if not illegal and action != 4:
             hand.first_action = False
-            
+
         if hand.busted() or hand.blackjack():
             round_over = True
         return round_over, illegal
-        
-    
+
     def hit(self, hand, shoe):
         c = shoe.deal()
         hand.add_card(c)
@@ -481,7 +528,7 @@ class Player(object):
         c = hand.cards.pop()
         self.hit(hand, shoe)
         hand.splithand = True
-        
+
         # self.hands.append(hand.split())
         # # print "Splitted %s" % hand
         # self.play_hand(hand, shoe)
@@ -491,6 +538,7 @@ class Dealer(object):
     """
     Represent the dealer
     """
+
     def __init__(self, hand=None):
         self.hand = hand
 
@@ -510,9 +558,10 @@ class Dealer(object):
     # [17, 18, 19, 20, 21, Busted] '''
     # TODO Differentiate 21 and BJ
     # TODO make an actual tree, this is false AF
-    def get_probabilities(self) :
+    def get_probabilities(self):
         start_value = self.hand.value
         # We'll draw 5 cards no matter what an count how often we got 17, 18, 19, 20, 21, Busted
+
 
 class Tree(object):
     """
@@ -521,7 +570,8 @@ class Tree(object):
     e.g : [2 : 0.05, 3 : 0.1, ..., 22 : 0.1]
     Any value above 21 will be truncated to 22, which means 'Busted'.
     """
-    #TODO to test
+
+    # TODO to test
     def __init__(self, start=[]):
         self.tree = []
         self.tree.append(start)
@@ -529,16 +579,16 @@ class Tree(object):
     def add_a_statistical_card(self, stat_card):
         # New set of leaves in the tree
         leaves = []
-        for p in self.tree[-1] :
-            for v in stat_card :
+        for p in self.tree[-1]:
+            for v in stat_card:
                 new_value = v + p
-                proba = self.tree[-1][p]*stat_card[v]
-                if (new_value > 21) :
+                proba = self.tree[-1][p] * stat_card[v]
+                if new_value > 21:
                     # All busted values are 22
                     new_value = 22
-                if (new_value in leaves) :
+                if new_value in leaves:
                     leaves[new_value] = leaves[new_value] + proba
-                else :
+                else:
                     leaves[new_value] = proba
 
 
@@ -546,6 +596,7 @@ class Game(object):
     """
     A sequence of Blackjack Rounds that keeps track of total money won or lost
     """
+
     def __init__(self, randomize_shoe_state=False):
         self.shoe = Shoe(SHOE_SIZE, randomize_shoe_state)
         self.money = 0.0
@@ -594,7 +645,7 @@ class Game(object):
         if hand.splithand:
             win *= 2
             bet *= 2
-            #print(f"Splitted hand. Win: {win}, Bet: {bet}")
+            # print(f"Splitted hand. Win: {win}, Bet: {bet}")
 
         win *= self.stake
 
@@ -625,19 +676,29 @@ class Game(object):
             # print "Player Hand: %s %s (Value: %d, Busted: %r, BlackJack: %r, Splithand: %r, Soft: %r, Surrender: %r, Doubled: %r)" % (hand, status, hand.value, hand.busted(), hand.blackjack(), hand.splithand, hand.soft(), hand.surrender, hand.doubled)
 
         # print "Dealer Hand: %s (%d)" % (self.dealer.hand, self.dealer.hand.value)
-    
-    # Addition: deals the initial cards until player's turn    
+
+    # Addition: deals the initial cards until player's turn
     def start_gym_round(self):
         self.stake = 1.0
-        
-        
-        
+
         player_hand = Hand([self.shoe.deal(), self.shoe.deal()])
         dealer_hand = Hand([self.shoe.deal()])
         self.player.set_hands(player_hand, dealer_hand)
         self.dealer.set_hand(dealer_hand)
         return
-        
+
+    # Addition
+    def get_all_cards(self):
+        """
+        Returns all cards in the game where each card is a tuple (card name, card value)
+        """
+        return {
+            "cards": [
+                card
+                for hand in self.player.hands + [self.dealer.hand]
+                for card in hand.cards
+            ],
+        }
 
     def get_money(self):
         return self.money
@@ -665,7 +726,14 @@ def main():
         bets.append(game.get_bet())
         countings += game.shoe.count_history
 
-        print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
+        print(
+            "WIN for Game no. %d: %s (%s bet)"
+            % (
+                g + 1,
+                "{0:.2f}".format(game.get_money()),
+                "{0:.2f}".format(game.get_bet()),
+            )
+        )
 
     sume = 0.0
     total_bet = 0.0
@@ -674,9 +742,16 @@ def main():
     for value in bets:
         total_bet += value
 
-    print("\n%d hands overall, %0.2f hands per game on average" % (nb_hands, float(nb_hands) / GAMES))
+    print(
+        "\n%d hands overall, %0.2f hands per game on average"
+        % (nb_hands, float(nb_hands) / GAMES)
+    )
     print("%0.2f total bet" % total_bet)
-    print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
+    print(
+        "Overall winnings: {} (edge = {} %)".format(
+            "{0:.2f}".format(sume), "{0:.3f}".format(100.0 * sume / total_bet)
+        )
+    )
 
     moneys = sorted(moneys)
     # Addition: remove plotting
