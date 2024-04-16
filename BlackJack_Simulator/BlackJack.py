@@ -13,10 +13,10 @@ from BlackJack_Simulator.importer.StrategyImporter import StrategyImporter
 import gymnasium as gym
 from gymnasium import spaces
 
-GAMES = 20000
+GAMES = 10000
 SHOE_SIZE = 1
 SHOE_PENETRATION = 0.25
-BET_SPREAD = 20.0
+BET_SPREAD = 10.0
 
 DECK_SIZE = 52.0
 CARDS = {
@@ -53,6 +53,8 @@ BASIC_OMEGA_II = {
 BLACKJACK_RULES = {
     "triple7": False,  # Count 3x7 as a blackjack
 }
+
+ACTIONS = {"H": 0, "S": 1, "D": 2, "Sr": 3, "P": 4}
 
 HARD_STRATEGY = {}
 SOFT_STRATEGY = {}
@@ -448,13 +450,19 @@ class Player(object):
             self.hit(hand, shoe)
 
         while not hand.busted() and not hand.blackjack():
+            # print("Playing Hand: " + str(hand))
+            # print("Dealer Hand: " + str(self.dealer_hand))
+            if hand.value < 5:
+                print("Hand: " + str(hand))
+                print("Soft: " + str(hand.soft()))
+                print("Splitable: " + str(hand.splitable()))
             if hand.soft():
                 flag = SOFT_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
             elif hand.splitable():
                 flag = PAIR_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
             else:
                 flag = HARD_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
-
+            # print("Flag: " + flag)
             if flag == "D":
                 if hand.length() == 2:
                     # print "Double Down"
@@ -480,6 +488,7 @@ class Player(object):
 
             if flag == "S":
                 break
+        # print("Player Hand: " + str(hand))
 
     # Addition: take action in the round
     def take_action(self, action, shoe):
@@ -548,6 +557,7 @@ class Dealer(object):
     def play(self, shoe):
         while self.hand.value < 17:
             self.hit(shoe)
+        # print("Dealer Hand: " + str(self.hand))
 
     def hit(self, shoe):
         c = shoe.deal()
@@ -707,21 +717,30 @@ class Game(object):
         return self.bet
 
 
-def main():
-    importer = StrategyImporter(sys.argv[1])
+# Use this function for baselines
+# Problems with adding a new class:
+# Name of dealer card in strategy dictionary
+# Deterministic true in predict
+# Classifier
+# >= instead of > for threshold
+def omega_II_baseline_eval(basic_strategy_filename):
+    global HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY
+    importer = StrategyImporter(basic_strategy_filename)
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
+    print("Hard: ", HARD_STRATEGY)
+    print("Soft: ", SOFT_STRATEGY)
+    print("Pair: ", PAIR_STRATEGY)
 
     moneys = []
     bets = []
     countings = []
     nb_hands = 0
     for g in range(GAMES):
-        game = Game()
-        while not game.shoe.reshuffle:
-            # print '%s GAME no. %d %s' % (20 * '#', i + 1, 20 * '#')
-            game.play_round()
-            nb_hands += 1
-
+        game = Game(randomize_shoe_state=True)
+        game.play_round()
+        # # print '%s GAME no. %d %s' % (20 * '#', i + 1, 20 * '#')
+        # game.play_round()
+        # nb_hands += 1
         moneys.append(game.get_money())
         bets.append(game.get_bet())
         countings += game.shoe.count_history
@@ -734,7 +753,7 @@ def main():
                 "{0:.2f}".format(game.get_bet()),
             )
         )
-
+    print(f"""Average returns: {np.mean(moneys)}""")
     sume = 0.0
     total_bet = 0.0
     for value in moneys:
@@ -742,18 +761,18 @@ def main():
     for value in bets:
         total_bet += value
 
-    print(
-        "\n%d hands overall, %0.2f hands per game on average"
-        % (nb_hands, float(nb_hands) / GAMES)
-    )
-    print("%0.2f total bet" % total_bet)
+    # print(
+    #     "\n%d hands overall, %0.2f hands per game on average"
+    #     % (nb_hands, float(nb_hands) / GAMES)
+    # )
+    # print("%0.2f total bet" % total_bet)
     print(
         "Overall winnings: {} (edge = {} %)".format(
             "{0:.2f}".format(sume), "{0:.3f}".format(100.0 * sume / total_bet)
         )
     )
 
-    moneys = sorted(moneys)
+    # moneys = sorted(moneys)
     # Addition: remove plotting
     # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
     # pl.plot(moneys, fit, '-o')
