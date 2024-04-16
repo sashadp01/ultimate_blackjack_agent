@@ -13,7 +13,6 @@ from BlackJack_Simulator.importer.StrategyImporter import StrategyImporter
 import gymnasium as gym
 from gymnasium import spaces
 
-GAMES = 10000
 SHOE_SIZE = 1
 SHOE_PENETRATION = 0.25
 BET_SPREAD = 10.0
@@ -67,7 +66,8 @@ class UltimateBlackjackRoundEnv(gym.Env):
 
     metadata = {"render_modes": ["console"]}
 
-    def __init__(self, render_mode="console", card_counting=True):
+    def __init__(self, render_mode="console", card_counting=True, n_decks=1):
+        global SHOE_SIZE
         super(UltimateBlackjackRoundEnv, self).__init__()
         self.render_mode = render_mode
         self.card_counting = card_counting
@@ -83,10 +83,12 @@ class UltimateBlackjackRoundEnv(gym.Env):
         # pair in hand: 0 or 1,
         # first action in hand: 0 or 1
         # aces, 2-9, 10 or face card: 0-4 except 10 or face card: 0-16 (assuming 1 deck)
+        SHOE_SIZE = n_decks
+        c = 4 * SHOE_SIZE
         if self.card_counting:
             self.observation_space = spaces.Box(
                 low=np.array([3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-                high=np.array([31, 10, 1, 1, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 16]),
+                high=np.array([31, 10, 1, 1, 1, c, c, c, c, c, c, c, c, c, 4 * c]),
                 dtype=int,
             )
         else:
@@ -440,7 +442,7 @@ class Player(object):
 
     def play(self, shoe):
         for hand in self.hands:
-            # print "Playing Hand: %s" % hand
+            # print("Player Hand from play(): " + str(hand))
             self.play_hand(hand, shoe)
 
     def play_hand(self, hand, shoe):
@@ -448,21 +450,19 @@ class Player(object):
             if hand.cards[0].name == "Ace":
                 hand.cards[0].value = 11
             self.hit(hand, shoe)
-
+        # print("Player Hand from play_hand(): " + str(hand))
         while not hand.busted() and not hand.blackjack():
-            # print("Playing Hand: " + str(hand))
-            # print("Dealer Hand: " + str(self.dealer_hand))
-            if hand.value < 5:
-                print("Hand: " + str(hand))
-                print("Soft: " + str(hand.soft()))
-                print("Splitable: " + str(hand.splitable()))
+            # print("Value: " + str(hand.value))
+            # print("Hand: " + str(hand))
+            # print("Soft: " + str(hand.soft()))
+            # print("Splitable: " + str(hand.splitable()))
             if hand.soft():
                 flag = SOFT_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
             elif hand.splitable():
                 flag = PAIR_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
             else:
                 flag = HARD_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
-            # print("Flag: " + flag)
+
             if flag == "D":
                 if hand.length() == 2:
                     # print "Double Down"
@@ -488,6 +488,7 @@ class Player(object):
 
             if flag == "S":
                 break
+            # print("Flag: " + flag)
         # print("Player Hand: " + str(hand))
 
     # Addition: take action in the round
@@ -535,6 +536,8 @@ class Player(object):
         # - Hit the current hand
         # - set splithand to True: will double the bet
         c = hand.cards.pop()
+        if hand.cards[0].name == "Ace":
+            hand.cards[0].value = 11
         self.hit(hand, shoe)
         hand.splithand = True
 
@@ -608,6 +611,7 @@ class Game(object):
     """
 
     def __init__(self, randomize_shoe_state=False):
+        # print("SHOE_SIZE: ", SHOE_SIZE)
         self.shoe = Shoe(SHOE_SIZE, randomize_shoe_state)
         self.money = 0.0
         self.bet = 0.0
@@ -663,6 +667,7 @@ class Game(object):
 
     def play_round(self):
         if self.shoe.truecount() > 6:
+            # print("Bet Spread: %f" % BET_SPREAD)
             self.stake = BET_SPREAD
         else:
             self.stake = 1.0
@@ -723,19 +728,23 @@ class Game(object):
 # Deterministic true in predict
 # Classifier
 # >= instead of > for threshold
-def omega_II_baseline_eval(basic_strategy_filename):
-    global HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY
+def omega_II_baseline_eval(
+    basic_strategy_filename, nbr_rounds=100000, bet_spread=10.0, n_decks=1
+):
+    global HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY, BET_SPREAD, SHOE_SIZE
+    BET_SPREAD = bet_spread
+    SHOE_SIZE = n_decks
     importer = StrategyImporter(basic_strategy_filename)
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
-    print("Hard: ", HARD_STRATEGY)
-    print("Soft: ", SOFT_STRATEGY)
-    print("Pair: ", PAIR_STRATEGY)
+    # print("Hard: ", HARD_STRATEGY)
+    # print("Soft: ", SOFT_STRATEGY)
+    # print("Pair: ", PAIR_STRATEGY)
 
     moneys = []
     bets = []
-    countings = []
-    nb_hands = 0
-    for g in range(GAMES):
+    # countings = []
+    # nb_hands = 0
+    for g in range(nbr_rounds):
         game = Game(randomize_shoe_state=True)
         game.play_round()
         # # print '%s GAME no. %d %s' % (20 * '#', i + 1, 20 * '#')
@@ -743,16 +752,16 @@ def omega_II_baseline_eval(basic_strategy_filename):
         # nb_hands += 1
         moneys.append(game.get_money())
         bets.append(game.get_bet())
-        countings += game.shoe.count_history
+        # countings += game.shoe.count_history
 
-        print(
-            "WIN for Game no. %d: %s (%s bet)"
-            % (
-                g + 1,
-                "{0:.2f}".format(game.get_money()),
-                "{0:.2f}".format(game.get_bet()),
-            )
-        )
+        # print(
+        #     "WIN for Game no. %d: %s (%s bet)"
+        #     % (
+        #         g + 1,
+        #         "{0:.2f}".format(game.get_money()),
+        #         "{0:.2f}".format(game.get_bet()),
+        #     )
+        # )
     print(f"""Average returns: {np.mean(moneys)}""")
     sume = 0.0
     total_bet = 0.0

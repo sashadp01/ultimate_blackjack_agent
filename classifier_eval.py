@@ -21,7 +21,10 @@ monitor_kwargs = {
         "return",
     )
 }
-env_kwargs = {"card_counting": True}
+env_kwargs = {
+    "card_counting": True,
+    "n_decks": 1,
+}
 
 model = PPO.load(MODEL_NAME)
 classifier = CatBoostRegressor().load_model("catboost_model.cbm")
@@ -44,14 +47,14 @@ for i in tqdm(range(100000)):
     # print([str(card) for card in info["cards"]])
     # print(obs)
     # print(bet_state)
-    
-    #make a bet using the classifier
+
+    # make a bet using the classifier
     bet = classifier.predict([bet_state])[0]
     if bet < threshold:
         bet = 0
     else:
         bet = 1
-    
+
     done = False
     reward = None
     while not done:
@@ -63,7 +66,7 @@ for i in tqdm(range(100000)):
     bet_decision.append(bet)
 
 
-#convert to numpy arrays
+# convert to numpy arrays
 ep_returns = np.array(ep_returns)
 bet_decision = np.array(bet_decision)
 
@@ -72,10 +75,14 @@ print(f"Average return constant bet: {avg_return}")
 avg_return_bet_high = np.mean(ep_returns[bet_decision == 1])
 print(f"Average return bet high: {avg_return_bet_high}, for {sum(bet_decision)} bets")
 avg_return_bet_low = np.mean(ep_returns[bet_decision == 0])
-print(f"Average return bet low: {avg_return_bet_low}, for {len(bet_decision) - sum(bet_decision)} bets")
+print(
+    f"Average return bet low: {avg_return_bet_low}, for {len(bet_decision) - sum(bet_decision)} bets"
+)
 
 odds = 10.0
-avg_return_bet_dynamic = np.mean(np.where(bet_decision == 0, ep_returns, ep_returns * odds))
+avg_return_bet_dynamic = np.mean(
+    np.where(bet_decision == 0, ep_returns, ep_returns * odds)
+)
 print(f"Average return bet dynamic: {avg_return_bet_dynamic}")
 
 print(
@@ -93,5 +100,3 @@ print(
 print(f"""Number of splits / episode: {mean([i["episode"]["split"] for i in infos])}""")
 print(f"""Average returns from env: {mean([i["episode"]["return"] for i in infos])}""")
 print(f"""Average returns from monitor: {mean([i["episode"]["r"] for i in infos])}""")
-
-
