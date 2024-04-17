@@ -15,7 +15,7 @@ from gymnasium import spaces
 
 SHOE_SIZE = 1
 SHOE_PENETRATION = 0.25
-BET_SPREAD = 10.0
+BET_SPREAD = 20.0
 
 DECK_SIZE = 52.0
 CARDS = {
@@ -729,7 +729,7 @@ class Game(object):
 # Classifier
 # >= instead of > for threshold
 def omega_II_baseline_eval(
-    basic_strategy_filename, nbr_rounds=100000, bet_spread=10.0, n_decks=1
+    basic_strategy_filename, nbr_rounds=100000, bet_spread=20.0, n_decks=1
 ):
     global HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY, BET_SPREAD, SHOE_SIZE
     BET_SPREAD = bet_spread
@@ -739,7 +739,6 @@ def omega_II_baseline_eval(
     # print("Hard: ", HARD_STRATEGY)
     # print("Soft: ", SOFT_STRATEGY)
     # print("Pair: ", PAIR_STRATEGY)
-
     moneys = []
     bets = []
     # countings = []
@@ -762,7 +761,8 @@ def omega_II_baseline_eval(
         #         "{0:.2f}".format(game.get_bet()),
         #     )
         # )
-    print(f"""Average returns: {np.mean(moneys)}""")
+    average_return = np.mean(moneys)
+    print(f"""Average returns: {average_return}""")
     sume = 0.0
     total_bet = 0.0
     for value in moneys:
@@ -780,7 +780,7 @@ def omega_II_baseline_eval(
             "{0:.2f}".format(sume), "{0:.3f}".format(100.0 * sume / total_bet)
         )
     )
-
+    return average_return
     # moneys = sorted(moneys)
     # Addition: remove plotting
     # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed

@@ -20,10 +20,13 @@ monitor_kwargs = {
         "return",
     )
 }
-env_kwargs = {"card_counting": False}
+env_kwargs = {"card_counting": True, "n_decks": 2}
+model_name = "f_PPO_counting_2_decks_linear_lr"
+# TODO: need 5 runs and store info somewhere
+
 
 # Perform evaluation on a single environment
-model = PPO.load("ppo_UBJ_10M_no_count")
+model = PPO.load(model_name)
 
 # Perform evaluation on a single environment
 env = UltimateBlackjackRoundEnv(**env_kwargs)

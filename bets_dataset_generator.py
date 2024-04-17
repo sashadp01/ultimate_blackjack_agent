@@ -18,16 +18,18 @@ monitor_kwargs = {
     )
 }
 # Params
-env_kwargs = {"card_counting": True, "n_decks": 4}
-model_name = "PPO_counting_2_decks_linear_lr"
+env_kwargs = {"card_counting": True, "n_decks": 1}
+model_name = "f_PPO_counting_1_deck_linear_lr"
+model_dir = "data/models/"
+output_dir = "data/datasets/"
 
-model = PPO.load(model_name)
+model = PPO.load(model_dir + model_name)
 env = UltimateBlackjackRoundEnv(**env_kwargs)
 env = Monitor(env, filename=None, **monitor_kwargs)
 infos = []
 samples = []
 
-for i in tqdm(range(1e7)):
+for i in tqdm(range(10000000)):
     obs, info = env.reset()
     bet_state = list(obs[-10:])
     # Decrement the card count
@@ -84,4 +86,4 @@ data = pd.DataFrame(
 )
 
 # print(data)
-data.to_csv(model_name + "_dataset.csv", index=False)
+data.to_csv(output_dir + model_name + "_dataset.csv", index=False)

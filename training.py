@@ -21,8 +21,9 @@ monitor_kwargs = {
     )
 }
 # Params
-env_kwargs = {"card_counting": True, "n_decks": 4}
-model_name = "f_PPO_counting_4_decks_linear_lr"
+env_kwargs = {"card_counting": True, "n_decks": 1}
+model_name = "f_PPO_counting_1_deck_linear_lr"
+model_output_dir = "./data/models/"
 
 
 def lr_fixed_schedule(progress_remaining):
@@ -70,7 +71,7 @@ model = PPO(
     verbose=0,
     device="cpu",
     learning_rate=lr_linear_schedule,
-    tensorboard_log="./ppo_UBJ_tensorboard/",
+    tensorboard_log="./data/ppo_UBJ_tensorboard/",
 )
 
 
@@ -78,7 +79,7 @@ eval_env = UltimateBlackjackRoundEnv(**env_kwargs)
 eval_env = Monitor(eval_env, filename=None, **monitor_kwargs)
 eval_callback = EvalCallback(
     eval_env,
-    log_path="./ppo_UBJ_tensorboard/",
+    log_path="./data/ppo_UBJ_tensorboard/",
     eval_freq=25000,
     deterministic=True,
     render=False,
@@ -94,4 +95,4 @@ model.learn(
     tb_log_name=model_name,
 )
 
-model.save(model_name)
+model.save(model_output_dir + model_name)
