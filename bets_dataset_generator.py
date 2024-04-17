@@ -5,8 +5,6 @@ from statistics import mean
 from tqdm import tqdm
 import pandas as pd
 
-MODEL_NAME = "test_lr_linear_schedule"
-
 monitor_kwargs = {
     "info_keywords": (
         "illegal",
@@ -19,15 +17,17 @@ monitor_kwargs = {
         "return",
     )
 }
-env_kwargs = {"card_counting": True}
+# Params
+env_kwargs = {"card_counting": True, "n_decks": 4}
+model_name = "PPO_counting_2_decks_linear_lr"
 
-model = PPO.load(MODEL_NAME)
+model = PPO.load(model_name)
 env = UltimateBlackjackRoundEnv(**env_kwargs)
 env = Monitor(env, filename=None, **monitor_kwargs)
 infos = []
 samples = []
 
-for i in tqdm(range(10000000)):
+for i in tqdm(range(1e7)):
     obs, info = env.reset()
     bet_state = list(obs[-10:])
     # Decrement the card count
@@ -84,4 +84,4 @@ data = pd.DataFrame(
 )
 
 # print(data)
-data.to_csv("bets_dataset.csv", index=False)
+data.to_csv(model_name + "_dataset.csv", index=False)

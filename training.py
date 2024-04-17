@@ -20,8 +20,9 @@ monitor_kwargs = {
         "return",
     )
 }
-env_kwargs = {"card_counting": True}
-model_name = "test_lr_step_schedule"
+# Params
+env_kwargs = {"card_counting": True, "n_decks": 4}
+model_name = "f_PPO_counting_4_decks_linear_lr"
 
 
 def lr_fixed_schedule(progress_remaining):
@@ -68,10 +69,7 @@ model = PPO(
     vec_env,
     verbose=0,
     device="cpu",
-    learning_rate=lr_step_schedule,  # To be fine tuned
-    # batch_size=32,
-    # n_steps=8192,
-    # n_epochs=5,
+    learning_rate=lr_linear_schedule,
     tensorboard_log="./ppo_UBJ_tensorboard/",
 )
 
@@ -89,10 +87,7 @@ eval_callback = EvalCallback(
 )
 
 model.learn(
-    # Would multiplying by N_ENVS * EPISODE_LENGTH be the "best" way to compare trainig with the paper?
-    # Training time explodes if we do that
-    total_timesteps=(1e4 + 1e6 + 1e7),
-    # total_timesteps=(1e6),
+    total_timesteps=2e7,
     progress_bar=True,
     log_interval=1,
     callback=[TensorboardCallback(), eval_callback],
