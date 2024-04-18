@@ -22,7 +22,7 @@ monitor_kwargs = {
 }
 # Params
 env_kwargs = {"card_counting": True, "n_decks": 1}
-model_name = "f_PPO_counting_1_deck_linear_lr"
+model_name = "test_lr_step_schedule"
 model_output_dir = "./data/models/"
 
 
@@ -70,7 +70,7 @@ model = PPO(
     vec_env,
     verbose=0,
     device="cpu",
-    learning_rate=lr_linear_schedule,
+    learning_rate=lr_step_schedule,
     tensorboard_log="./data/ppo_UBJ_tensorboard/",
 )
 
@@ -88,7 +88,8 @@ eval_callback = EvalCallback(
 )
 
 model.learn(
-    total_timesteps=2e7,
+    # total_timesteps=2e7,
+    total_timesteps=(1e4 + 1e6 + 1e7),
     progress_bar=True,
     log_interval=1,
     callback=[TensorboardCallback(), eval_callback],

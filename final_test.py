@@ -9,8 +9,8 @@ import numpy as np
 import json
 
 
-MODEL_NAME = "f_PPO_counting_1_deck_linear_lr.zip"
-CLASSIFIER_NAME = "f_PPO_counting_1_deck_linear_lr_catboost_model.cbm"
+MODEL_NAME = "f_PPO_counting_4_decks_linear_lr.zip"
+CLASSIFIER_NAME = "f_PPO_counting_4_decks_linear_lr_catboost_model.cbm"
 
 monitor_kwargs = {
     "info_keywords": (
@@ -26,28 +26,30 @@ monitor_kwargs = {
 }
 env_kwargs = {
     "card_counting": True,
-    "n_decks": 1,
+    "n_decks": 4,
 }
 
-model = PPO.load('data/models/' + MODEL_NAME)
-classifier = CatBoostRegressor().load_model('data/classifiers/' + CLASSIFIER_NAME)
-threshold = np.load('data/classifiers/' + CLASSIFIER_NAME.replace('catboost_model.cbm', 'threshold.npy'))
+model = PPO.load("data/models/" + MODEL_NAME)
+classifier = CatBoostRegressor().load_model("data/classifiers/" + CLASSIFIER_NAME)
+threshold = np.load(
+    "data/classifiers/" + CLASSIFIER_NAME.replace("catboost_model.cbm", "threshold.npy")
+)
 env = UltimateBlackjackRoundEnv(**env_kwargs)
 env = Monitor(env, filename=None, **monitor_kwargs)
 
 results_dict = {MODEL_NAME: {}}
 results_dict[MODEL_NAME] = {
-        "avg_return": [],
-        "avg_return_bet_high": [],
-        "avg_return_bet_low": [],
-        "avg_return_bet_dynamic": [],
-        "avg_bet": [],
-        "avg_edge": [],
-        "min_edge": None,
-        "max_edge": None,
+    "avg_return": [],
+    "avg_return_bet_high": [],
+    "avg_return_bet_low": [],
+    "avg_return_bet_dynamic": [],
+    "avg_bet": [],
+    "avg_edge": [],
+    "min_edge": None,
+    "max_edge": None,
 }
 
-for j in range(5): # 5 independent trials
+for j in range(5):  # 5 independent trials
     infos = []
     ep_returns = []
     bet_decision = []
@@ -81,7 +83,6 @@ for j in range(5): # 5 independent trials
         ep_returns.append(ep_return)
         bet_decision.append(bet)
 
-
     # convert to numpy arrays
     ep_returns = np.array(ep_returns)
     bet_decision = np.array(bet_decision)
@@ -89,7 +90,9 @@ for j in range(5): # 5 independent trials
     avg_return = np.mean(ep_returns)
     print(f"Average return constant bet: {avg_return}")
     avg_return_bet_high = np.mean(ep_returns[bet_decision == 1])
-    print(f"Average return bet high: {avg_return_bet_high}, for {sum(bet_decision)} bets")
+    print(
+        f"Average return bet high: {avg_return_bet_high}, for {sum(bet_decision)} bets"
+    )
     avg_return_bet_low = np.mean(ep_returns[bet_decision == 0])
     print(
         f"Average return bet low: {avg_return_bet_low}, for {len(bet_decision) - sum(bet_decision)} bets"
@@ -115,8 +118,8 @@ for j in range(5): # 5 independent trials
     results_dict[MODEL_NAME]["max_edge"] = max(results_dict[MODEL_NAME]["avg_edge"])
 
 
-#save dict
-with open('data/results/' + MODEL_NAME.replace('.zip', '_results.json'), 'w') as f:
+# save dict
+with open("data/results/" + MODEL_NAME.replace(".zip", "_results.json"), "w") as f:
     json.dump(results_dict, f)
 
 
