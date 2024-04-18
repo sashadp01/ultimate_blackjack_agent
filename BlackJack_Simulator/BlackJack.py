@@ -762,7 +762,10 @@ def omega_II_baseline_eval(
         #     )
         # )
     average_return = np.mean(moneys)
+    average_bet = np.mean(bets)
     print(f"""Average returns: {average_return}""")
+    print(f"""Average bet: {average_bet}""")
+    average_edge = average_return / average_bet
     sume = 0.0
     total_bet = 0.0
     for value in moneys:
@@ -780,7 +783,7 @@ def omega_II_baseline_eval(
             "{0:.2f}".format(sume), "{0:.3f}".format(100.0 * sume / total_bet)
         )
     )
-    return average_return
+    return average_edge
     # moneys = sorted(moneys)
     # Addition: remove plotting
     # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
