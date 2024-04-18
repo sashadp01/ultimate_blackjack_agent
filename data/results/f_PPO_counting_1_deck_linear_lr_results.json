@@ -1,0 +1,42 @@
+{
+    "(20.0, 0)": {
+        "avg_return": 0.00496,
+        "avg_return_bet_high": 0.07274291765951814,
+        "avg_return_bet_low": -0.0005787162235250849,
+        "avg_return_bet_dynamic": 0.109365,
+        "avg_bet": 2.43526,
+        "avg_edge": 0.04490896249271125
+    },
+    "(20.0, 1)": {
+        "avg_return": 0.00286,
+        "avg_return_bet_high": 0.07519946808510639,
+        "avg_return_bet_low": -0.00302227508650519,
+        "avg_return_bet_dynamic": 0.110305,
+        "avg_bet": 2.4288,
+        "avg_edge": 0.045415431488801054
+    },
+    "(20.0, 2)": {
+        "avg_return": 0.011225,
+        "avg_return_bet_high": 0.08697699448405759,
+        "avg_return_bet_low": 0.005142221309970075,
+        "avg_return_bet_dynamic": 0.13406,
+        "avg_bet": 2.41227,
+        "avg_edge": 0.055574210183768825
+    },
+    "(20.0, 3)": {
+        "avg_return": 0.003045,
+        "avg_return_bet_high": 0.0798542080848244,
+        "avg_return_bet_low": -0.0032231896598345143,
+        "avg_return_bet_dynamic": 0.11752,
+        "avg_bet": 2.43355,
+        "avg_edge": 0.04829159047482074
+    },
+    "(20.0, 4)": {
+        "avg_return": 0.00207,
+        "avg_return_bet_high": 0.08641564662054284,
+        "avg_return_bet_low": -0.00478461139224082,
+        "avg_return_bet_dynamic": 0.125475,
+        "avg_bet": 2.42804,
+        "avg_edge": 0.05167748472018582
+    }
+}

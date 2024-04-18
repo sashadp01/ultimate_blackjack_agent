@@ -2,7 +2,7 @@ import json
 from BlackJack_Simulator.BlackJack import omega_II_baseline_eval
 
 basic_strategy_filename = "./BlackJack_Simulator/strategy/BasicStrategy.csv"
-eval_output_filename = "./baselines_performance.json"
+eval_output_filename = "data/results/baselines_performance.json"
 perf = {}
 
 for bet_spread in [1, 20]:
