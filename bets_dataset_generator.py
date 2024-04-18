@@ -19,7 +19,8 @@ monitor_kwargs = {
 }
 # Params
 env_kwargs = {"card_counting": True, "n_decks": 1}
-model_name = "f_PPO_counting_1_deck_linear_lr"
+model_name = "f_PPO_no_counting_1_deck_linear_lr"
+no_count = True #set to true when using a model trained without card counting
 model_dir = "data/models/"
 output_dir = "data/datasets/"
 
@@ -43,7 +44,11 @@ for i in tqdm(range(10000000)):
     # print(bet_state)
     done = False
     reward = None
+    
     while not done:
+        if no_count:
+            #truncate the observation to remove the card count
+            obs = obs[:-10]
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, _, info = env.step(action)
     infos.append(info)
