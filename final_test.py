@@ -35,7 +35,17 @@ threshold = np.load('data/classifiers/' + CLASSIFIER_NAME.replace('catboost_mode
 env = UltimateBlackjackRoundEnv(**env_kwargs)
 env = Monitor(env, filename=None, **monitor_kwargs)
 
-results_dict = {}
+results_dict = {MODEL_NAME: {}}
+results_dict[MODEL_NAME] = {
+        "avg_return": [],
+        "avg_return_bet_high": [],
+        "avg_return_bet_low": [],
+        "avg_return_bet_dynamic": [],
+        "avg_bet": [],
+        "avg_edge": [],
+        "min_edge": None,
+        "max_edge": None,
+}
 
 for j in range(5): # 5 independent trials
     infos = []
@@ -95,14 +105,15 @@ for j in range(5): # 5 independent trials
     print(f"Average bet: {avg_bet}")
     print(f"average edge: {avg_edge}")
 
-    results_dict[f"({odds}, {j})"] = {
-        "avg_return": avg_return,
-        "avg_return_bet_high": avg_return_bet_high,
-        "avg_return_bet_low": avg_return_bet_low,
-        "avg_return_bet_dynamic": avg_return_bet_dynamic,
-        "avg_bet": avg_bet,
-        "avg_edge": avg_edge,
-    }
+    results_dict[MODEL_NAME]["avg_return"].append(avg_return)
+    results_dict[MODEL_NAME]["avg_return_bet_high"].append(avg_return_bet_high)
+    results_dict[MODEL_NAME]["avg_return_bet_low"].append(avg_return_bet_low)
+    results_dict[MODEL_NAME]["avg_return_bet_dynamic"].append(avg_return_bet_dynamic)
+    results_dict[MODEL_NAME]["avg_bet"].append(avg_bet)
+    results_dict[MODEL_NAME]["avg_edge"].append(avg_edge)
+    results_dict[MODEL_NAME]["min_edge"] = min(results_dict[MODEL_NAME]["avg_edge"])
+    results_dict[MODEL_NAME]["max_edge"] = max(results_dict[MODEL_NAME]["avg_edge"])
+
 
 #save dict
 with open('data/results/' + MODEL_NAME.replace('.zip', '_results.json'), 'w') as f:
