@@ -10,7 +10,7 @@ Install the required Python packages: `pip install -r requirements.txt`
 
 ## Folder Structure
 
-- `BlackJack_Simulator`: This folder contains our modified implementation of the [BlackJack_Simulator](https://github.com/seblau/BlackJack-Simulator/tree/master). It features a custom implementation of a Gym environment interface wrapping around the Blackjack simulator and adding features such as the state of the deck. Modifications ar tagged with the `# Addition:` comment.
+- `BlackJack_Simulator`: This folder contains our modified implementation of the [BlackJack_Simulator](https://github.com/seblau/BlackJack-Simulator/tree/master). It features a custom implementation of a Gym environment interface wrapping around the Blackjack simulator and adding features such as the state of the deck. Modifications are tagged with the `# Addition:` comment.
 
 - `data`: This folder contains all the relevant data for the project:
 
