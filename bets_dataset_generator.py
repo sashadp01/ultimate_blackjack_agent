@@ -30,21 +30,20 @@ env = Monitor(env, filename=None, **monitor_kwargs)
 infos = []
 samples = []
 
+#generate 10,000,000 samples
 for i in tqdm(range(10000000)):
     obs, info = env.reset()
     bet_state = list(obs[-10:])
-    # Decrement the card count
+    # Decrement the card count, to account for the cards in the player's hand
     for card in info["cards"]:
         if card.name == "Ace":
             bet_state[0] -= 1
         else:
             bet_state[card.value - 1] -= 1
-    # print([str(card) for card in info["cards"]])
-    # print(obs)
-    # print(bet_state)
+
     done = False
     reward = None
-
+    #play episode
     while not done:
         if no_count:
             # truncate the observation to remove the card count

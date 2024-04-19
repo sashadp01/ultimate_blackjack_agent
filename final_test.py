@@ -8,7 +8,7 @@ from catboost import CatBoostRegressor
 import numpy as np
 import json
 
-
+#change the model name to the model you want to test
 MODEL_NAME = "f_PPO_counting_1_deck_linear_lr.zip"
 CLASSIFIER_NAME = "f_PPO_counting_1_deck_linear_lr_catboost_model.cbm"
 no_count = False  # set to true when using a model trained without card counting
@@ -29,7 +29,7 @@ env_kwargs = {
     "card_counting": True,
     "n_decks": 1,
 }
-
+# Load the model and classifier
 model = PPO.load("data/models/" + MODEL_NAME)
 classifier = CatBoostRegressor().load_model("data/classifiers/" + CLASSIFIER_NAME)
 threshold = np.load(
@@ -38,6 +38,7 @@ threshold = np.load(
 env = UltimateBlackjackRoundEnv(**env_kwargs)
 env = Monitor(env, filename=None, **monitor_kwargs)
 
+#setup results dictionary
 results_dict = {MODEL_NAME: {}}
 results_dict[MODEL_NAME] = {
     "avg_return": [],
@@ -57,15 +58,12 @@ for j in range(5):  # 5 independent trials
     for i in tqdm(range(100000)):
         obs, info = env.reset()
         bet_state = list(obs[-10:])
-        # Decrement the card count
+        # Decrement the card count, to account for the cards in the player's hand
         for card in info["cards"]:
             if card.name == "Ace":
                 bet_state[0] -= 1
             else:
                 bet_state[card.value - 1] -= 1
-        # print([str(card) for card in info["cards"]])
-        # print(obs)
-        # print(bet_state)
 
         # make a bet using the classifier
         bet = classifier.predict([bet_state])[0]
@@ -101,7 +99,7 @@ for j in range(5):  # 5 independent trials
     print(
         f"Average return bet low: {avg_return_bet_low}, for {len(bet_decision) - sum(bet_decision)} bets"
     )
-
+    # calculate the average edge with dynamic betting
     odds = 20.0
     avg_return_bet_dynamic = np.mean(
         np.where(bet_decision == 0, ep_returns, ep_returns * odds)
@@ -127,18 +125,4 @@ with open("data/results/" + MODEL_NAME.replace(".zip", "_results.json"), "w") as
     json.dump(results_dict, f)
 
 
-# print(
-#     f"""Number of illegal moves / episode in {len(infos)} episode: {mean([i["episode"]["illegal"] for i in infos])}"""
-# )
-# print(f"""Win rate: {mean([i["episode"]["won"] for i in infos])}""")
-# print(f"""Number of hits / episode: {mean([i["episode"]["hit"] for i in infos])}""")
-# print(f"""Number of stands / episode: {mean([i["episode"]["stand"] for i in infos])}""")
-# print(
-#     f"""Number of doubles / episode: {mean([i["episode"]["double"] for i in infos])}"""
-# )
-# print(
-#     f"""Number of surrenders / episode: {mean([i["episode"]["surrender"] for i in infos])}"""
-# )
-# print(f"""Number of splits / episode: {mean([i["episode"]["split"] for i in infos])}""")
-# print(f"""Average returns from env: {mean([i["episode"]["return"] for i in infos])}""")
-# print(f"""Average returns from monitor: {mean([i["episode"]["r"] for i in infos])}""")
+
