@@ -9,8 +9,9 @@ import numpy as np
 import json
 
 
-MODEL_NAME = "f_PPO_counting_4_decks_linear_lr.zip"
-CLASSIFIER_NAME = "f_PPO_counting_4_decks_linear_lr_catboost_model.cbm"
+MODEL_NAME = "f_PPO_counting_1_deck_linear_lr.zip"
+CLASSIFIER_NAME = "f_PPO_counting_1_deck_linear_lr_catboost_model.cbm"
+no_count = False  # set to true when using a model trained without card counting
 
 monitor_kwargs = {
     "info_keywords": (
@@ -26,7 +27,7 @@ monitor_kwargs = {
 }
 env_kwargs = {
     "card_counting": True,
-    "n_decks": 4,
+    "n_decks": 1,
 }
 
 model = PPO.load("data/models/" + MODEL_NAME)
@@ -76,6 +77,9 @@ for j in range(5):  # 5 independent trials
         done = False
         reward = None
         while not done:
+            if no_count:
+                # truncate the observation to remove the card count
+                obs = obs[:-10]
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, _, info = env.step(action)
         ep_return = info["episode"]["return"]
