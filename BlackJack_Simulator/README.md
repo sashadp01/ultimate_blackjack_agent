@@ -1,6 +1,8 @@
 BlackJack-Simulator with OMEGA II Card Counting
 ==============================================
 
+Credit to the authors of ![BlackJack_Simulator](https://github.com/seblau/BlackJack-Simulator) for the base implementation of the blackjack simulator.
+
 Flexible BlackJack-Simulator written in Python. It takes a given basic strategy as input (defined in a .csv-file) and simulates that strategy over a given amount of time. The simulator also counts cards sticking to the [OMEGA II Count](http://www.countingedge.com/card-counting/advanced-omega-ii/), which basically gives every card some value. Depending on the current count the bet size gets adjusted.
 
 ### Running
